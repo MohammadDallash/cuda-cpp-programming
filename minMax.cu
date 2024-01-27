@@ -411,7 +411,7 @@ __device__ bool customSort( State a,  State b)
 
 __device__ int getFlattenedIndexInDst(int i, int j, int k)
 {
-    const int d1 = 5, d2 = 16, d3 = 3;
+    const int  d2 = 16, d3 = 3;
 
     return i * (d2 * d3) + j * d3 + k;
 }
@@ -449,11 +449,16 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
 
 
 
-
-
     int *p;
     cudaMalloc((void**)&p, sizeof(int) * 5);
+
     cudaDeviceSynchronize();
+
+    p[0]=0;
+    p[1]=0;
+    p[2]=0;
+    p[3]=0;
+    p[4]=0;
 
 
 
@@ -463,17 +468,19 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
     cudaDeviceSynchronize();
 
 
-
+    
     // add each location to its corresponding size
 
     fori(BOARD_SIZE)
     {
         forj(BOARD_SIZE)
         {
+             
             int size = get_largest_piece_size(curState.board[i][j]);
 
 
-            int idx = getFlattenedIndexInDst(size, p[size]++, 0);
+            int idx = getFlattenedIndexInDst(size, p[size], 0);
+            p[size]++;
             cudaDeviceSynchronize();
 
 
@@ -483,6 +490,7 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
             possible_destination[idx+2] = j;
         }
     }
+
 
 
 
@@ -598,6 +606,7 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
         }
     }
 
+
     cudaFree(p);
     cudaDeviceSynchronize();
 
@@ -625,9 +634,11 @@ __device__ State minMax_alpha_beta (State postion ,int depth,int alpha , int bet
     if(depth==0) return postion;
 
       
-    db("d");
+
     generate_possible_states(postion, buring ,n_child ,a);
-    db("d");
+
+
+    printf("%d \n", n_child);
 
     cudaDeviceSynchronize();
 
