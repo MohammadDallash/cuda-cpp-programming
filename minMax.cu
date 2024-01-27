@@ -60,7 +60,7 @@ const int BOARD_MOVE = 1;
 __device__ int get_largest_piece(int n);
 __device__ bool checkWins(State s);
 __device__ int get_largest_piece_size(int n);
-__device__ void debug_state(State state);
+__device__ __host__ void debug_state(State state);
 __device__ int static_evaluation(State curState);
 __device__ bool customSort( State a,  State b);
 __device__ void generate_possible_states(State curState, bool sorting,  int &n_child, State* &a);
@@ -191,7 +191,7 @@ __device__ int get_largest_piece_size(int n)
 
     return 0;
 }
-__device__ void debug_state(State state) {
+__device__ __host__ void debug_state(State state) {
     printf("Turn: %d\n\n", state.turn);
 
     printf("Board:\n");
@@ -638,7 +638,7 @@ __device__ State minMax_alpha_beta (State postion ,int depth,int alpha , int bet
     generate_possible_states(postion, buring ,n_child ,a);
 
 
-    printf("%d \n", n_child);
+    printf(""); // magiccc
 
     cudaDeviceSynchronize();
 
@@ -706,23 +706,21 @@ __device__ State minMax_alpha_beta (State postion ,int depth,int alpha , int bet
 }
 
 #pragma no_auto_parallel
-__device__ void tt(State s)
+__device__ State tt(State s)
 {
     auto o = minMax_alpha_beta(s, 2, INT32_MIN, INT32_MAX, true, true,1 );
     cudaDeviceSynchronize();
 
-    debug_state(o);
+    return o;
 }
 
 
-__global__ void kernel(State s)
+__global__ void kernel(State s, State* o)
 {
-    tt(s)    ;
-    cudaDeviceSynchronize();
-
-    //cudaDeviceSynchronize();
-
+    State an = tt(s);
+    *o = an;
 }
+
 
 
 
@@ -757,27 +755,29 @@ int main(int argc, char *argv[])
 
     
     
-    kernel<<<1,1>>>(initial_state); /*
-    when you pass a structure (like your initial_state of type State) to a kernel using the
-    triple-angle bracket syntax (kernel<<<1, 1>>>(initial_state);), the CUDA runtime automatically 
-    handles the memory transfer from the host to the device.
-    */
+    State *an;
+
+    // Allocate memory for each vector on GPU
+    cudaMalloc(&an, sizeof(State));
+
+    kernel<<<1, 1>>>(initial_state, an);
     cudaDeviceSynchronize();
 
+    // Allocate memory for anH on the host
+    State *anH = (State*)malloc(sizeof(State));
 
-  
-   
+    cudaMemcpy(anH, an, sizeof(State), cudaMemcpyDeviceToHost);
 
-    // debug_state(initial_state);
+    // Now you can use anH as needed
 
-    // print source values.
-    // fori(3) cout << best_state.lastMove[0][i] << " ";
+    debug_state(*anH);
 
-    // cout << endl;
 
-    // // print destination values.
-    // fori(3) cout << best_state.lastMove[1][i] << " ";
+    // Don't forget to free the allocated memory on the host
+    free(anH);
 
+    // Don't forget to free the allocated memory on the device
+    cudaFree(an);
     return 0;
 }
 
