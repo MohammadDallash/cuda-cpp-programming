@@ -71,6 +71,7 @@ using namespace std;
 
 __device__ int get_largest_piece(int n)
 {
+
     int pieces[] = {BLUE_XLARGE, RED_XLARGE,
                     BLUE_LARGE, RED_LARGE,
                     BLUE_MEDIUM, RED_MEDIUM,
@@ -86,7 +87,8 @@ __device__ int get_largest_piece(int n)
 }
 
 
-__device__ bool checkWins(State s) {
+__device__ bool checkWins(State s) 
+{
     int blue = 0;
     int red = 0;
 
@@ -175,6 +177,7 @@ __device__ bool checkWins(State s) {
 
 __device__ int get_largest_piece_size(int n)
 {
+
     int pieces[] = {BLUE_XLARGE, RED_XLARGE,
                     BLUE_LARGE, RED_LARGE,
                     BLUE_MEDIUM, RED_MEDIUM,
@@ -417,9 +420,14 @@ __device__ int getFlattenedIndexInDst(int i, int j, int k)
 __device__ void generate_possible_states(State curState, bool sorting,  int &n_child, State* &a)
 {
 
+   
+
     if (checkWins(curState))
     {
-        cudaMalloc((void**)a, sizeof(State) * 1);
+
+        cudaMalloc((void**)&a, sizeof(State) * 1);
+        cudaDeviceSynchronize();
+
         
         n_child ++;
         a[0] = curState;
@@ -456,7 +464,6 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
 
 
 
-
     // add each location to its corresponding size
 
     fori(BOARD_SIZE)
@@ -467,6 +474,8 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
 
 
             int idx = getFlattenedIndexInDst(size, p[size]++, 0);
+            cudaDeviceSynchronize();
+
 
 
             possible_destination[idx] = BOARD_MOVE;
@@ -490,6 +499,7 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
             int largest_piece = get_largest_piece(curPiece);
 
 
+
             if (((largest_piece > ALL_BLUE)) ^ (curState.turn))
                 continue; // if its not your turn
 
@@ -498,6 +508,7 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
                 for (int d = 0; d < p[s]; d++)
                 {
                     int *dest = possible_destination + getFlattenedIndexInDst(s,d,0);
+
 
 
                     State newState = curState;
@@ -512,10 +523,18 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
                     newState.lastMove[0][1] = i;
                     newState.lastMove[0][2]  = j;
 
-                    std::memcpy(newState.lastMove[1], dest, 3 * sizeof(int));
+
+
+                    newState.lastMove[1][0] = dest[0];
+                    newState.lastMove[1][1] = dest[1];
+                    newState.lastMove[1][2] = dest[2];
+
+
+
 
                     newState.turn = curState.turn ^ 1;
                     newState.static_evl=static_evaluation(newState);
+
 
 
                     a[n_child++] = newState;
@@ -523,6 +542,8 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
             }
         }
     }
+
+  
 
 
     fori(INVENTORY_SIZE)
@@ -533,6 +554,7 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
 
         int largest_piece = get_largest_piece(curPiece);
         
+        
 
 
         for (int s = 0; s < size; s++)
@@ -540,6 +562,7 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
             for (int d = 0; d < p[s]; d++)
             {
                 int *dest = possible_destination + getFlattenedIndexInDst(s,d,0);
+
 
 
                 State newState = curState;
@@ -553,9 +576,18 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
                 newState.lastMove[0][1] = curState.turn;
                 newState.lastMove[0][2]  = i;
 
-                std::memcpy(newState.lastMove[1], dest, 3 * sizeof(int));
+                
+                
+                newState.lastMove[1][0] = dest[0];
+                newState.lastMove[1][1] = dest[1];
+                newState.lastMove[1][2] = dest[2];
+
+
+
+
                 newState.turn = curState.turn ^ 1;
                 newState.static_evl=static_evaluation(newState);
+
 
 
                 
@@ -592,8 +624,13 @@ __device__ State minMax_alpha_beta (State postion ,int depth,int alpha , int bet
     State * a;
     if(depth==0) return postion;
 
-
+      
+    db("d");
     generate_possible_states(postion, buring ,n_child ,a);
+    db("d");
+
+    cudaDeviceSynchronize();
+
 
 
 
@@ -611,6 +648,8 @@ __device__ State minMax_alpha_beta (State postion ,int depth,int alpha , int bet
         for(int i=0;i<n_child;i++)
         {  
             State largest_state =minMax_alpha_beta (a[i], depth-1,alpha,beta, buring, mutation, difficulty);
+            cudaDeviceSynchronize();
+
 
             evl=largest_state.static_evl;
             alpha=max(evl,alpha);
@@ -620,18 +659,19 @@ __device__ State minMax_alpha_beta (State postion ,int depth,int alpha , int bet
                 largest_Eval = evl;
             }
 
-            if(alpha>= beta and buring){
-                break;
-            }
+            if(alpha>= beta and buring)break;
         }
     }
     else // minimizer
     {
+
         
         int minest_Eval=INT32_MAX;
         for(int i=0;i<n_child;i++)
         {
             State minest_state =minMax_alpha_beta(a[i], depth-1,alpha,beta, buring, mutation, difficulty);
+            cudaDeviceSynchronize();
+
 
             evl=minest_state.static_evl;
             beta=min(beta,evl);
@@ -642,12 +682,13 @@ __device__ State minMax_alpha_beta (State postion ,int depth,int alpha , int bet
                 minest_Eval = evl;
             }
 
-            if(alpha>= beta and buring){
-                break;
-            }
+            if(alpha>= beta and buring)  break;
             
         }
     }
+
+    cudaFree(a);
+    cudaDeviceSynchronize();
 
 
     return temp;
@@ -656,17 +697,18 @@ __device__ State minMax_alpha_beta (State postion ,int depth,int alpha , int bet
 #pragma no_auto_parallel
 __device__ void tt(State s)
 {
-//  print_device(s);
-    auto o = minMax_alpha_beta(s, 1, INT32_MIN, INT32_MAX, true, true,1 );
+    auto o = minMax_alpha_beta(s, 2, INT32_MIN, INT32_MAX, true, true,1 );
+    cudaDeviceSynchronize();
 
     debug_state(o);
-
 }
 
 
 __global__ void kernel(State s)
 {
     tt(s)    ;
+    cudaDeviceSynchronize();
+
     //cudaDeviceSynchronize();
 
 }
