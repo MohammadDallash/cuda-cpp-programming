@@ -19,7 +19,7 @@ __global__ void fun(long long *a, long long n)
 int main(int argc, char *argv[])
 {
     // Size of vectors
-    long long n = 1e12;
+    long long n = 1e11;
 
     // Host input number
     long long *h_a;
@@ -45,13 +45,30 @@ int main(int argc, char *argv[])
 
     cout << "Block Size: " << blockSize << ", Grid Size: " << gridSize << '\n';
 
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+
+    cudaEventRecord(start);
+
     // Execute the kernel
     fun<<<gridSize, blockSize>>>(d_a, n);
+
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
 
     // Copy array back to host
     cudaMemcpy(h_a, d_a, sizeof(long long), cudaMemcpyDeviceToHost);
 
-    ::cout << "Result: " << *h_a << '\n';
+    cout << "There are " << *h_a << " even numbers bellow "<<n<< '\n';
+
+
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+
+    std::cout << "Kernel Execution Time: " << milliseconds << " ms\n";
+
 
     // Release device memory
     cudaFree(d_a);

@@ -627,20 +627,21 @@ __device__ void generate_possible_states(State curState, bool sorting,  int &n_c
 __device__ State minMax_alpha_beta (State postion ,int depth,int alpha , int beta, bool buring, bool mutation, int difficulty)
 { 
     
+    
     int evl;
     State temp;
     int n_child = 0;
     State * a;
     if(depth==0) return postion;
 
-      
-
+   
     generate_possible_states(postion, buring ,n_child ,a);
-
-
-    printf(""); // magiccc
-
     cudaDeviceSynchronize();
+
+
+    printf(""); // IF i commented this code i get UDA error: an illegal memory access was encountered
+
+
 
 
 
@@ -708,7 +709,7 @@ __device__ State minMax_alpha_beta (State postion ,int depth,int alpha , int bet
 #pragma no_auto_parallel
 __device__ State tt(State s)
 {
-    auto o = minMax_alpha_beta(s, 2, INT32_MIN, INT32_MAX, true, true,1 );
+    auto o = minMax_alpha_beta(s, 3, INT32_MIN, INT32_MAX, true, true,1 );
     cudaDeviceSynchronize();
 
     return o;
@@ -762,6 +763,8 @@ int main(int argc, char *argv[])
 
     kernel<<<1, 1>>>(initial_state, an);
     cudaDeviceSynchronize();
+
+    
 
     // Allocate memory for anH on the host
     State *anH = (State*)malloc(sizeof(State));
